@@ -1,0 +1,11 @@
+[package]
+name = "commit-pinned"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+commit-info = { path = "../commit-info" }
+serde.workspace = true
+
+[dev-dependencies]
+serde_json = "1"
