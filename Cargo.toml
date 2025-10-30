@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/commit-info", "crates/commit-pinned"]
+members = ["crates/commit", "crates/info", "crates/pinned"]
 resolver = "2"
 
 [workspace.package]

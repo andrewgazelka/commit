@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-commit-info = { path = "../commit-info" }
+commit-info = { path = "../info" }
 serde.workspace = true
 
 [dev-dependencies]

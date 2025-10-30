@@ -2,25 +2,28 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 /// A 32-byte SHA-256 hash representing a commit
-pub type CommitHash = [u8; 32];
+pub type Hash = [u8; 32];
 
 /// Error when a commit hash is not found in the history
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CommitNotFound {
-    pub hash: CommitHash,
+pub struct NotFound {
+    pub hash: Hash,
 }
 
-impl std::fmt::Display for CommitNotFound {
+impl std::fmt::Display for NotFound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "commit not found in history: {}",
-            self.hash.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+            self.hash
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
         )
     }
 }
 
-impl std::error::Error for CommitNotFound {}
+impl std::error::Error for NotFound {}
 
 const COMMIT: &str = env!("GIT_COMMIT");
 const DIRTY: &str = env!("GIT_DIRTY");
@@ -32,21 +35,19 @@ const HISTORY_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/history.b
 /// A timestamp index for a commit, allowing temporal ordering based on commit history.
 /// Lower values indicate earlier commits in the repository history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CommitTime(u16);
+pub struct Time(u16);
 
-impl CommitTime {
-    /// Create a CommitTime from a commit hash by looking up its position in history
-    pub fn from_hash(hash: &CommitHash) -> Result<Self, CommitNotFound> {
-        get_index(hash)
-            .map(CommitTime)
-            .ok_or(CommitNotFound { hash: *hash })
+impl Time {
+    /// Create a Time from a commit hash by looking up its position in history
+    pub fn from_hash(hash: &Hash) -> Result<Self, NotFound> {
+        get_index(hash).map(Time).ok_or(NotFound { hash: *hash })
     }
 
-    /// Create a CommitTime from a commit hash, panicking if not found.
+    /// Create a Time from a commit hash, panicking if not found.
     /// Use this for compile-time known commits that must exist.
-    pub const fn from_hash_const(hash: &CommitHash) -> Self {
+    pub const fn from_hash_const(hash: &Hash) -> Self {
         match get_index_const(hash) {
-            Some(idx) => CommitTime(idx),
+            Some(idx) => Time(idx),
             None => panic!("commit not found in history"),
         }
     }
@@ -65,13 +66,13 @@ impl CommitTime {
     }
 }
 
-impl PartialOrd for CommitTime {
+impl PartialOrd for Time {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for CommitTime {
+impl Ord for Time {
     fn cmp(&self, other: &Self) -> Ordering {
         // Reverse ordering: lower index = earlier = "less than"
         other.0.cmp(&self.0)
@@ -79,7 +80,7 @@ impl Ord for CommitTime {
 }
 
 /// Get the current commit hash at build time
-pub fn commit() -> CommitHash {
+pub fn commit() -> Hash {
     parse_commit_hash(COMMIT)
 }
 
@@ -96,7 +97,7 @@ fn history() -> &'static [[u8; 32]] {
 }
 
 /// Get the index of a commit in the history (private, for internal use)
-fn get_index(hash: &CommitHash) -> Option<u16> {
+fn get_index(hash: &Hash) -> Option<u16> {
     history()
         .iter()
         .position(|h| h == hash)
@@ -104,7 +105,7 @@ fn get_index(hash: &CommitHash) -> Option<u16> {
 }
 
 /// Const version of get_index for compile-time usage
-const fn get_index_const(hash: &CommitHash) -> Option<u16> {
+const fn get_index_const(hash: &Hash) -> Option<u16> {
     let mut i = 0;
     while i < HISTORY_LEN {
         let offset = i * 32;
@@ -125,7 +126,7 @@ const fn get_index_const(hash: &CommitHash) -> Option<u16> {
     None
 }
 
-fn parse_commit_hash(hex: &str) -> CommitHash {
+fn parse_commit_hash(hex: &str) -> Hash {
     let mut bytes = [0u8; 32];
     for (i, chunk) in hex.as_bytes().chunks(2).enumerate() {
         if i >= 32 {
@@ -151,8 +152,8 @@ mod tests {
 
     #[test]
     fn test_commit_time_ordering() {
-        let earlier = CommitTime(100);
-        let later = CommitTime(50);
+        let earlier = Time(100);
+        let later = Time(50);
         assert!(later > earlier);
         assert!(earlier < later);
     }
@@ -174,7 +175,7 @@ mod tests {
     fn test_commit_time_from_hash() {
         let current = commit();
         // Current commit should be at index 0
-        let time = CommitTime::from_hash(&current).unwrap();
+        let time = Time::from_hash(&current).unwrap();
         assert_eq!(time.index(), 0);
     }
 
@@ -182,9 +183,9 @@ mod tests {
     fn test_commit_time_ranges() {
         // Remember: lower index = later in time (reversed ordering)
         // But ranges still use Ord comparison (late < mid < early)
-        let late = CommitTime(10);     // newer commit (compares as greater)
-        let mid = CommitTime(50);      // middle commit
-        let early = CommitTime(100);   // older commit (compares as less)
+        let late = Time(10); // newer commit (compares as greater)
+        let mid = Time(50); // middle commit
+        let early = Time(100); // older commit (compares as less)
 
         // For ranges, start must be <= end in terms of Ord
         // early < mid < late (in Ord terms, because of reversed ordering)
@@ -199,8 +200,8 @@ mod tests {
         let current = commit();
 
         // Test that const version works
-        let const_time = CommitTime::from_hash_const(&current);
-        let runtime_time = CommitTime::from_hash(&current).unwrap();
+        let const_time = Time::from_hash_const(&current);
+        let runtime_time = Time::from_hash(&current).unwrap();
         assert_eq!(const_time.index(), runtime_time.index());
     }
 
@@ -211,13 +212,13 @@ mod tests {
         const V3_IDX: u16 = 10;
 
         let test_cases = vec![
-            (CommitTime(5), "v3+"),
-            (CommitTime(10), "v3+"),
-            (CommitTime(30), "v2"),
-            (CommitTime(50), "v1"),
-            (CommitTime(75), "v1"),
-            (CommitTime(100), "v1"),
-            (CommitTime(150), "v1"),
+            (Time(5), "v3+"),
+            (Time(10), "v3+"),
+            (Time(30), "v2"),
+            (Time(50), "v1"),
+            (Time(75), "v1"),
+            (Time(100), "v1"),
+            (Time(150), "v1"),
         ];
 
         for (time, expected) in test_cases {

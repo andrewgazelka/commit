@@ -1,0 +1,8 @@
+[package]
+name = "commit"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+commit-info = { path = "../info" }
+commit-pinned = { path = "../pinned" }
