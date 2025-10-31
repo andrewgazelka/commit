@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Andrew Gazelka
+// SPDX-License-Identifier: MIT
+
 use commit_info::{COMMIT, Hash, NotFound, Time, dirty};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

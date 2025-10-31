@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Andrew Gazelka
+// SPDX-License-Identifier: MIT
+
 use sha2::{Digest, Sha256};
 use std::io::Write;
 

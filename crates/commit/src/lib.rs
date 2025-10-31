@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Andrew Gazelka
+// SPDX-License-Identifier: MIT
+
 //! # commit
 //!
 //! Zero-allocation commit tracking for Rust binaries.

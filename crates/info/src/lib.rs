@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Andrew Gazelka
+// SPDX-License-Identifier: MIT
+
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
