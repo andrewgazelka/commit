@@ -1,4 +1,4 @@
-use commit_info::{Hash, NotFound, Time, commit, dirty};
+use commit_info::{COMMIT, Hash, NotFound, Time, dirty};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Placeholder type that ignores content during deserialization.
@@ -40,7 +40,7 @@ impl<T> Pinned<T> {
     /// Create a new `Pinned` instance with the current build-time git commit info.
     pub fn new(content: T) -> Self {
         Self {
-            commit: commit(),
+            commit: COMMIT,
             dirty: dirty(),
             content,
         }

@@ -27,7 +27,7 @@
 //! ```
 
 // Re-export everything from commit-info
-pub use commit_info::{Hash, NotFound, Time, commit, dirty};
+pub use commit_info::{COMMIT, COMMIT_STRING, Hash, NotFound, Time, dirty};
 
 // Re-export everything from commit-pinned
 pub use commit_pinned::{Ignored, Pinned};

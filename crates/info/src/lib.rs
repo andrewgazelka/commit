@@ -25,12 +25,17 @@ impl std::fmt::Display for NotFound {
 
 impl std::error::Error for NotFound {}
 
-const COMMIT: &str = env!("GIT_COMMIT");
+/// The current commit hash as a hex string
+pub const COMMIT_STRING: &str = env!("GIT_COMMIT");
+
 const DIRTY: &str = env!("GIT_DIRTY");
 const HISTORY_LEN: usize = const_str::parse!(env!("GIT_HISTORY_LEN"), usize);
 
 // Include the raw history bytes at compile time
 const HISTORY_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/history.bin"));
+
+/// The current commit hash as a byte array
+pub const COMMIT: Hash = parse_commit_hash(COMMIT_STRING);
 
 /// A timestamp index for a commit, allowing temporal ordering based on commit history.
 /// Lower values indicate earlier commits in the repository history.
@@ -79,11 +84,6 @@ impl Ord for Time {
     }
 }
 
-/// Get the current commit hash at build time
-pub fn commit() -> Hash {
-    parse_commit_hash(COMMIT)
-}
-
 /// Check if the working directory was dirty at build time
 pub fn dirty() -> bool {
     DIRTY.parse().unwrap_or(false)
@@ -126,18 +126,26 @@ const fn get_index_const(hash: &Hash) -> Option<u16> {
     None
 }
 
-fn parse_commit_hash(hex: &str) -> Hash {
+const fn parse_commit_hash(hex: &str) -> Hash {
     let mut bytes = [0u8; 32];
-    for (i, chunk) in hex.as_bytes().chunks(2).enumerate() {
-        if i >= 32 {
-            break;
-        }
-        if chunk.len() == 2 {
-            bytes[i] =
-                u8::from_str_radix(std::str::from_utf8(chunk).unwrap_or("00"), 16).unwrap_or(0);
-        }
+    let hex_bytes = hex.as_bytes();
+    let mut i = 0;
+    while i < 32 && i * 2 + 1 < hex_bytes.len() {
+        let high = hex_digit_to_u8(hex_bytes[i * 2]);
+        let low = hex_digit_to_u8(hex_bytes[i * 2 + 1]);
+        bytes[i] = (high << 4) | low;
+        i += 1;
     }
     bytes
+}
+
+const fn hex_digit_to_u8(byte: u8) -> u8 {
+    match byte {
+        b'0'..=b'9' => byte - b'0',
+        b'a'..=b'f' => byte - b'a' + 10,
+        b'A'..=b'F' => byte - b'A' + 10,
+        _ => 0,
+    }
 }
 
 #[cfg(test)]
@@ -146,8 +154,7 @@ mod tests {
 
     #[test]
     fn test_commit_hash_size() {
-        let hash = commit();
-        assert_eq!(hash.len(), 32);
+        assert_eq!(COMMIT.len(), 32);
     }
 
     #[test]
@@ -173,9 +180,8 @@ mod tests {
 
     #[test]
     fn test_commit_time_from_hash() {
-        let current = commit();
         // Current commit should be at index 0
-        let time = Time::from_hash(&current).unwrap();
+        let time = Time::from_hash(&COMMIT).unwrap();
         assert_eq!(time.index(), 0);
     }
 
@@ -197,11 +203,9 @@ mod tests {
 
     #[test]
     fn test_const_from_hash() {
-        let current = commit();
-
         // Test that const version works
-        let const_time = Time::from_hash_const(&current);
-        let runtime_time = Time::from_hash(&current).unwrap();
+        let const_time = Time::from_hash_const(&COMMIT);
+        let runtime_time = Time::from_hash(&COMMIT).unwrap();
         assert_eq!(const_time.index(), runtime_time.index());
     }
 
